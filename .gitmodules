@@ -1,0 +1,12 @@
+[submodule "moonstream"]
+	path = moonstream
+	url = https://github.com/bugout-dev/moonstream.git
+	branch = main
+[submodule "brood"]
+	path = brood
+	url = https://github.com/bugout-dev/brood.git
+	branch = main
+[submodule "spire"]
+	path = spire
+	url = https://github.com/bugout-dev/spire.git
+	branch = main
