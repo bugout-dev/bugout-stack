@@ -1,0 +1,102 @@
+# Compose version
+version: "3"
+
+services:
+  # # DB postgres application
+  db:
+    image: postgres:13
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: db_dev
+    healthcheck:
+      test: ["CMD", "psql", "-U", "postgres", "-c", "SELECT 1;"]
+      interval: 5s
+      timeout: 1s
+      retries: 3
+      start_period: 2s
+
+  # Brood API application
+  brood:
+    build:
+      context: ./brood/
+      dockerfile: ./Dockerfile
+    image: brood:latest
+    entrypoint: ["/bin/sh","-c"]
+    command:
+    - |
+        ./configs/docker_init_migration.sh
+        ./configs/docker_init_plan.sh
+        ./configs/docker_init_moonstream.sh > /bugout/moonstream_app.env
+        ./dev.sh
+    ports:
+      - "127.0.0.1:7474:7474"
+    # Specify environment file for compose setup
+    env_file: ./brood/configs/docker.brood.env
+    environment:
+      ALEMBIC_CONFIG: ./configs/alembic.brood.ini
+      BROOD_HOST: 0.0.0.0
+      BROOD_PORT: 7474
+      BROOD_UVICORN_WORKERS: 1
+    volumes:
+        - ./:/bugout
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://brood:7474/ping"]
+      interval: 5s
+      timeout: 1s
+      retries: 2
+      start_period: 2s
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Moonstream DB migration
+  moonstreamdb:
+    build:
+      context: ./moonstream/db/
+      dockerfile: ./Dockerfile
+    image: moonstreamdb:latest
+    # Specify environment file for compose setup
+    env_file: ./moonstream/db/configs/docker.moonstreamdb.env
+    environment:
+      ALEMBIC_CONFIG: ./configs/alembic.moonstreamdb.ini
+    volumes:
+      - ./:/bugout
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Moonstream API application
+  moonstreamapi:
+    build:
+      context: ./moonstream/backend/
+      dockerfile: ./Dockerfile
+    image: moonstreamapi:latest
+    entrypoint: ["/bin/sh","-c"]
+    command:
+    - |
+        . /bugout/moonstream_app.env
+        ./dev.sh
+    ports:
+      - "127.0.0.1:7481:7481"
+    # Specify environment file for compose setup
+    env_file: ./moonstream/backend/configs/docker.moonstreamapi.env
+    environment:
+      MOONSTREAMAPI_HOST: 0.0.0.0
+      MOONSTREAMAPI_PORT: 7481
+      MOONSTREAMAPI_UVICORN_WORKERS: 1
+    volumes:
+      - ./:/bugout
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://moonstreamapi:7481/ping"]
+      interval: 5s
+      timeout: 1s
+      retries: 2
+      start_period: 2s
+    depends_on:
+      db:
+        condition: service_healthy
+      # brood:
+      #   condition: service_healthy
