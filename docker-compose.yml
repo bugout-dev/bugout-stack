@@ -29,7 +29,7 @@ services:
     - |
         ./configs/docker_init_migration.sh
         ./configs/docker_init_plan.sh
-        ./configs/docker_init_moonstream.sh > /bugout/moonstream_app.env
+        ./configs/docker_init_moonstream.sh > /bugout/configs/docker.app.env
         ./dev.sh
     ports:
       - "127.0.0.1:7474:7474"
@@ -74,10 +74,13 @@ services:
       context: ./moonstream/backend/
       dockerfile: ./Dockerfile
     image: moonstreamapi:latest
+    depends_on:
+      - "brood"
     entrypoint: ["/bin/sh","-c"]
     command:
     - |
-        . /bugout/moonstream_app.env
+        ./configs/docker_wait.sh "brood:7474"
+        . /bugout/configs/docker.app.env
         ./dev.sh
     ports:
       - "127.0.0.1:7481:7481"
@@ -95,8 +98,3 @@ services:
       timeout: 1s
       retries: 2
       start_period: 2s
-    depends_on:
-      db:
-        condition: service_healthy
-      # brood:
-      #   condition: service_healthy
